@@ -39,30 +39,34 @@ async function fetchCryptoData() {
     // Step 3: Map API response directly & maintain rank order
     const coinDataMap = Object.values(response.data.data).reduce(
       (acc, coin) => {
-        acc[coin.symbol] = {
-          id: coin.id.toString(),
-          symbol: coin.symbol,
-          name: coin.name,
-          image: `https://s2.coinmarketcap.com/static/img/coins/64x64/${coin.id}.png`,
-          current_price: coin.quote.USD.price,
-          price_change_percentage_24h: coin.quote.USD.percent_change_24h,
-          market_cap: coin.quote.USD.market_cap,
-          updated_at: moment().tz("Asia/Kolkata").toDate(),
-        };
+        const currentPrice = coin.quote.USD.price; // Extract price
+
+        if (currentPrice !== null) {
+          acc[coin.symbol] = {
+            id: coin.id.toString(),
+            symbol: coin.symbol,
+            name: coin.name,
+            image: `https://s2.coinmarketcap.com/static/img/coins/64x64/${coin.id}.png`,
+            current_price: currentPrice,
+            price_change_percentage_24h: coin.quote.USD.percent_change_24h,
+            market_cap: coin.quote.USD.market_cap,
+            updated_at: moment().tz("Asia/Kolkata").toDate(),
+          };
+        }
         return acc;
       },
       {}
     );
 
-    // Step 4: Maintain rank order from CoinMaster
+    // Step 4: Maintain rank order from CoinMaster & remove null prices
     const sortedCoins = coinMasterList
       .map((coin) => ({
         ...coinDataMap[coin.symbol],
         rank: coin.rank, // Maintain original rank
       }))
-      .filter((coin) => coin.id); // Ensure only valid coins are saved
+      .filter((coin) => coin.id && coin.current_price !== null); // Ensure valid coins & price is not null
 
-    console.log(`✅ Fetched ${sortedCoins.length} coins`);
+    console.log(`✅ Fetched ${sortedCoins.length} valid coins`);
 
     // Step 5: Update the Coins collection
     await Coin.deleteMany({});
@@ -77,7 +81,10 @@ async function fetchCryptoData() {
     // Step 7: Select next top 10 coins by price_change_percentage_24h (excluding top 10 by market cap)
     let top10ExcludedSymbols = new Set(top10Coins.map((coin) => coin.symbol));
     let top10Gainers = sortedCoins
-      .filter((coin) => !top10ExcludedSymbols.has(coin.symbol)) // Exclude top 10 by market cap
+      .filter(
+        (coin) =>
+          !top10ExcludedSymbols.has(coin.symbol) && coin.current_price !== null
+      ) // Exclude top 10 by market cap & null prices
       .sort(
         (a, b) => b.price_change_percentage_24h - a.price_change_percentage_24h
       )
@@ -125,7 +132,7 @@ async function saveDailyCryptoSnapshot() {
 }
 
 // Run once when the app starts
-// fetchCryptoData();
+fetchCryptoData();
 // saveDailyCryptoSnapshot();
 
 cron.schedule("59 23 * * *", async () => {

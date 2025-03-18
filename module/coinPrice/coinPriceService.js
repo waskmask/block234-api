@@ -3,6 +3,7 @@ const TopCoin = require("../../model/topCoin");
 const CoinsHistory = require("../../model/CoinsHistory");
 const SavedCoin = require("../../model/SavedCoin");
 const moment = require("moment-timezone");
+const { COIN_URL } = require("../../config/index");
 
 const addCoinPrice = async (req) => {
   const result = { data: null, code: 500 }; // Default to server error
@@ -167,7 +168,7 @@ const getAllCoinPrice = async (req) => {
           id: coin.id,
           name: coin.name,
           symbol: coin.symbol,
-          image: coin.image,
+          image: COIN_URL + coin.image,
           current_price: coin.current_price,
           yesterday_price: yesterday_price
             ? parseFloat(yesterday_price.toFixed(6))
@@ -238,7 +239,7 @@ const top10coins = async (req) => {
           id: coin.id,
           name: coin.name,
           symbol: coin.symbol,
-          image: coin.image,
+          image: COIN_URL + coin.image,
           current_price: coin.current_price,
           yesterday_price: yesterday_price
             ? parseFloat(yesterday_price.toFixed(12))
@@ -434,7 +435,7 @@ const getAllUserVotedCoins = async (req) => {
           coin_id: vote.coin_id,
           name: vote.name,
           symbol: vote.symbol,
-          image: vote.image,
+          image: COIN_URL + vote.image,
           price: vote.current_price,
           current_price: coin ? coin.current_price : null, // Get price or return null if not found
         };

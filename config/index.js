@@ -21,5 +21,6 @@ module.exports = {
   HOST: process.env.HOST,
   PORT: process.env.PORT,
   JWT_SECRET: process.env.JWT_SECRET,
-  COINMARKETCAP_API_KEY: process.env.COINMARKETCAP_API_KEY
+  COINMARKETCAP_API_KEY: process.env.COINMARKETCAP_API_KEY,
+  COIN_URL: process.env.COIN_URL,
 };

@@ -63,6 +63,7 @@ async function fetchCryptoData() {
       .map((coin) => ({
         ...coinDataMap[coin.symbol],
         rank: coin.rank, // Maintain original rank
+        image: coin.imageUrl,
       }))
       .filter((coin) => coin.id && coin.current_price !== null); // Ensure valid coins & price is not null
 
@@ -132,7 +133,7 @@ async function saveDailyCryptoSnapshot() {
 }
 
 // Run once when the app starts
-fetchCryptoData();
+// fetchCryptoData();
 // saveDailyCryptoSnapshot();
 
 cron.schedule("59 23 * * *", async () => {

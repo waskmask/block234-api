@@ -174,6 +174,8 @@ const getAllCoinPrice = async (req) => {
             ? parseFloat(yesterday_price.toFixed(6))
             : null, // Ensuring Double
           price_change_percentage_24h: coin.price_change_percentage_24h,
+          market_cap: coin.market_cap,
+          volume_24h: coin.volume_24h,
           updated_at: coin.updated_at,
         };
       });
@@ -245,6 +247,8 @@ const top10coins = async (req) => {
             ? parseFloat(yesterday_price.toFixed(12))
             : null, // Ensuring Double
           price_change_percentage_24h: coin.price_change_percentage_24h,
+          market_cap: coin.market_cap,
+          volume_24h: coin.volume_24h,
           updated_at: coin.updated_at,
         };
       });
@@ -438,6 +442,8 @@ const getAllUserVotedCoins = async (req) => {
           image: COIN_URL + vote.image,
           price: vote.current_price,
           current_price: coin ? coin.current_price : null, // Get price or return null if not found
+          market_cap: coin ? coin.market_cap : null,
+          volume_24h: coin ? coin.volume_24h : null,
         };
       })
     );

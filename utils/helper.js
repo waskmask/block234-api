@@ -50,6 +50,7 @@ async function fetchCryptoData() {
             current_price: currentPrice,
             price_change_percentage_24h: coin.quote.USD.percent_change_24h,
             market_cap: coin.quote.USD.market_cap,
+            volume_24h: coin.quote.USD.volume_24h,
             updated_at: moment().tz("Asia/Kolkata").toDate(),
           };
         }

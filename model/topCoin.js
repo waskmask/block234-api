@@ -7,8 +7,10 @@ const topCoinSchema = new mongoose.Schema({
   image: String,
   current_price: Number,
   price_change_percentage_24h: Number,
+  market_cap: Number, // ⬅ Added market cap
+  volume_24h: Number, // ⬅ Added 24-hour trading volume
   updated_at: { type: Date, default: Date.now },
 });
 
-const TopCoin = mongoose.model("TopCoin", topCoinSchema); // ⬅ Capitalized model name
+const TopCoin = mongoose.model("TopCoin", topCoinSchema);
 module.exports = TopCoin;

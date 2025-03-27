@@ -1,6 +1,7 @@
 const Coin = require("../../model/coin");
 const TopCoin = require("../../model/topCoin");
 const CoinsHistory = require("../../model/CoinsHistory");
+const CryptoVotingList = require("../../model/CryptoVotingList");
 const SavedCoin = require("../../model/SavedCoin");
 const moment = require("moment-timezone");
 const { COIN_URL } = require("../../config/index");
@@ -207,13 +208,25 @@ const top10coins = async (req) => {
   const result = { data: null, code: 500 }; // Default response
 
   try {
-    // 🔹 Fetch today's top 10 coins
-    const coins = await TopCoin.find();
+    // 🔹 Get today's date in YYYY-MM-DD format
+    const todayStr = moment().tz("Europe/Berlin").format("YYYY-MM-DD");
+
+    // 🔹 Fetch today's active crypto voting list
+    const votingList = await CryptoVotingList.findOne({
+      status: "Active",
+      list_date: todayStr,
+    });
+
+    if (!votingList || votingList.coins.length === 0) {
+      result.code = 204; // No Content
+      return result;
+    }
 
     // 🔹 Fetch yesterday's date
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split("T")[0]; // YYYY-MM-DD format
+    const yesterdayStr = moment()
+      .tz("Europe/Berlin")
+      .subtract(1, "day")
+      .format("YYYY-MM-DD");
 
     // 🔹 Fetch yesterday's coin data
     const yesterdayData = await CoinsHistory.findOne({ date: yesterdayStr });
@@ -222,45 +235,42 @@ const top10coins = async (req) => {
     const yesterdayPriceMap = {};
     if (yesterdayData && yesterdayData.coins.length > 0) {
       yesterdayData.coins.forEach((coin) => {
-        yesterdayPriceMap[coin.id] = coin.current_price;
+        yesterdayPriceMap[coin.symbol] = coin.listed_price; // Use listed_price from history
       });
     }
 
-    if (coins.length > 0) {
-      const coinPriceArry = coins.map((coin) => {
-        let yesterday_price = yesterdayPriceMap[coin.id] || null;
+    // 🔹 Process coin data
+    const coinPriceArry = votingList.coins.map((coin) => {
+      let yesterday_price = yesterdayPriceMap[coin.symbol] || null;
 
-        // 🔹 If yesterday_price is not found, calculate it
-        if (!yesterday_price && coin.price_change_percentage_24h !== null) {
-          yesterday_price =
-            coin.current_price / (1 + coin.price_change_percentage_24h / 100);
-        }
+      // 🔹 If yesterday_price is missing, estimate it using price_change_percentage_24h
+      if (!yesterday_price && coin.price_change_percentage_24h !== null) {
+        yesterday_price =
+          coin.listed_price / (1 + coin.price_change_percentage_24h / 100);
+      }
 
-        return {
-          _id: coin._id,
-          id: coin.id,
-          name: coin.name,
-          symbol: coin.symbol,
-          image: COIN_URL + coin.image,
-          current_price: coin.current_price,
-          yesterday_price: yesterday_price
-            ? parseFloat(yesterday_price.toFixed(12))
-            : null, // Ensuring Double
-          price_change_percentage_24h: coin.price_change_percentage_24h,
-          market_cap: coin.market_cap,
-          volume_24h: coin.volume_24h,
-          updated_at: coin.updated_at,
-        };
-      });
+      return {
+        _id: coin._id,
+        id: coin.id,
+        symbol: coin.symbol,
+        name: coin.name,
+        image: COIN_URL + coin.image, // Use stored image
+        current_price: coin.listed_price, // Using listed_price instead of current_price
+        yesterday_price: yesterday_price
+          ? parseFloat(yesterday_price.toFixed(12))
+          : null, // Ensuring Double
+        price_change_percentage_24h: coin.price_change_percentage_24h,
+        market_cap: coin.market_cap,
+        volume_24h: coin.volume_24h,
+        votes: coin.votes,
+        updated_at: votingList.updated_at, // Use voting list update time
+      };
+    });
 
-      result.data = { coins: coinPriceArry };
-      result.code = 200;
-    } else {
-      result.code = 204; // No Content
-      result.message = "No coin data available.";
-    }
+    result.data = { coins: coinPriceArry };
+    result.code = 200;
   } catch (error) {
-    console.error("❌ Error fetching top 10 coins:", error.message);
+    console.error("❌ Error fetching top 20 coins:", error.message);
     result.code = 500;
     result.message = "Internal server error";
   }
@@ -296,68 +306,53 @@ const deleteCoinPrice = async (req) => {
 
 const saveCoinPrice = async (req) => {
   const result = { data: null };
+
   try {
     const { id } = req.params;
-    const user_id = req.decoded.id; // Get logged-in user ID
-    const today = moment().tz("Asia/Kolkata").format("YYYY-MM-DD");
-    // Check if the coin exists in the database
-    const coin = await Coin.findOne({ id: id });
-    if (!coin) {
-      result.code = 2045; // Coin not found
+    const user_id = req.decoded.id; // Logged-in user ID
+    const today = moment().tz("Europe/Berlin").format("YYYY-MM-DD");
+
+    // ✅ Find today's active CryptoVotingList
+    const votingList = await CryptoVotingList.findOne({
+      status: "Active",
+      list_date: today,
+    });
+
+    if (!votingList) {
+      result.code = 2045; // No active voting list found
       return result;
     }
 
-    // Find today's entry in SavedCoin collection
-    let savedCoin = await SavedCoin.findOne({ date: today });
-
-    if (!savedCoin) {
-      // ✅ If no entry exists for today, create a new one with the first vote
-      savedCoin = new SavedCoin({
-        date: today,
-        votes: [
-          {
-            user_id,
-            coin_id: coin.id,
-            name: coin.name,
-            symbol: coin.symbol,
-            image: coin.image,
-            current_price: coin.current_price,
-          },
-        ],
-      });
-      result.code = 201; // New entry created
-    } else {
-      // ✅ If today's entry exists, check if the user has already voted
-      const existingVote = savedCoin.votes.find(
+    // ✅ Check if the user has already voted for another coin
+    let previousCoin = null;
+    votingList.coins.forEach((coin) => {
+      const voteIndex = coin.votes.findIndex(
         (vote) => vote.user_id.toString() === user_id
       );
-
-      if (existingVote) {
-        // ✅ User has already voted today → Update existing vote details
-        existingVote.coin_id = coin.id;
-        existingVote.name = coin.name;
-        existingVote.symbol = coin.symbol;
-        existingVote.image = coin.image;
-        existingVote.current_price = coin.current_price;
-
-        result.code = 202; // Vote updated
-      } else {
-        // ✅ User hasn't voted today → Add new vote entry
-        savedCoin.votes.push({
-          user_id,
-          coin_id: coin.id,
-          name: coin.name,
-          symbol: coin.symbol,
-          image: coin.image,
-          current_price: coin.current_price,
-        });
-
-        result.code = 201; // New vote added
+      if (voteIndex !== -1) {
+        previousCoin = coin;
+        coin.votes.splice(voteIndex, 1); // Remove the existing vote
       }
+    });
+
+    // ✅ Find the new coin in the active voting list
+    const newCoin = votingList.coins.find((coin) => coin.id === id);
+
+    if (!newCoin) {
+      result.code = 2045; // Coin not found in today's list
+      return result;
     }
 
-    await savedCoin.save();
-    result.data = savedCoin;
+    // ✅ Add the vote to the new coin
+    newCoin.votes.push({
+      user_id,
+      created_at: new Date(),
+    });
+
+    await votingList.save(); // ✅ Save the updated voting list
+
+    result.code = previousCoin ? 202 : 201; // 202 if vote was moved, 201 if it's a fresh vote
+    result.data = votingList;
   } catch (error) {
     console.error("❌ Error saving vote:", error.message);
     result.code = 500;
@@ -371,27 +366,61 @@ const getTodayVotedCoin = async (req) => {
   try {
     const user_id = req.decoded.id; // Get logged-in user ID
 
-    // Get today's date in Asia/Kolkata timezone (IST)
-    const formattedDate = moment().tz("Asia/Kolkata").format("YYYY-MM-DD");
-
-    // Find today's votes directly in the database using $elemMatch
-    const savedCoin = await SavedCoin.findOne(
+    // Find all coins where the user has voted
+    const votedLists = await CryptoVotingList.find(
       {
-        date: formattedDate,
-        "votes.user_id": user_id, // Directly match user_id inside votes array
+        "coins.votes.user_id": user_id, // Check inside nested array
       },
-      { "votes.$": 1 } // Project only the matching vote inside the array
+      { "coins.$": 1, list_date: 1 } // Project only matching coins and list date
     );
 
-    if (!savedCoin) {
-      result.code = 204; // No votes found for today
+    if (!votedLists || votedLists.length === 0) {
+      result.code = 204; // No votes found
       return result;
     }
 
-    result.data = savedCoin.votes;
+    // Flatten and extract only the voted coins
+    let votedCoins = [];
+    votedLists.forEach((list) => {
+      list.coins.forEach((coin) => {
+        if (coin.votes.some((vote) => vote.user_id.toString() === user_id)) {
+          votedCoins.push({
+            id: coin.id,
+            name: coin.name,
+            symbol: coin.symbol,
+            image: COIN_URL + coin.image,
+            price_change_percentage_24h: coin.price_change_percentage_24h,
+            price: coin.listed_price,
+            market_cap: coin.market_cap,
+            volume_24h: coin.volume_24h,
+            date: list.list_date, // Include list date
+          });
+        }
+      });
+    });
+
+    // Fetch current prices from Coin collection
+    const coinIds = votedCoins.map((coin) => coin.id);
+    const coinPrices = await Coin.find(
+      { id: { $in: coinIds } },
+      { id: 1, current_price: 1 }
+    );
+
+    // Create a price map for quick lookup
+    const priceMap = new Map(
+      coinPrices.map((coin) => [coin.id, coin.current_price])
+    );
+
+    // Merge prices into votedCoins data
+    votedCoins = votedCoins.map((coin) => ({
+      ...coin,
+      current_price: priceMap.get(coin.id) || null, // Default to null if price not found
+    }));
+
+    result.data = votedCoins;
     result.code = 200; // Success
   } catch (error) {
-    console.error("❌ Error fetching today's voted coins:", error.message);
+    console.error("❌ Error fetching user's voted coins:", error.message);
     result.code = 500;
   }
 

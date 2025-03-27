@@ -13,7 +13,7 @@ module.exports = (router) => {
     coinPriceController.updateCoinPrice
   );
   router.get("/all/coinPrice", coinPriceController.getAllCoinPrice);
-  router.get("/top10coins", coinPriceController.top10coins);
+  router.get("/cryptoVotingList", coinPriceController.top10coins);
   router.get("/coinPrice/:id", coinPriceController.getCoinPrice);
   router.post("/remove/coinPrice/:id", coinPriceController.deleteCoinPrice);
   router.post(
@@ -22,7 +22,7 @@ module.exports = (router) => {
     coinPriceController.saveCoinPrice
   );
   router.get(
-    "/getTodayVotedCoin",
+    "/getAllVotedCoins",
     middleware.validateToken,
     coinPriceController.getTodayVotedCoin
   );

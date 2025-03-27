@@ -4,6 +4,7 @@ const AWS = require("aws-sdk");
 const stream = require("stream");
 const Coin = require("../model/coin");
 const TopCoin = require("../model/topCoin");
+const CryptoVotingList = require("../model/CryptoVotingList");
 const CoinsHistory = require("../model/CoinsHistory");
 const CoinMaster = require("../model/CoinMaster");
 const moment = require("moment-timezone");
@@ -51,7 +52,7 @@ async function fetchCryptoData() {
             price_change_percentage_24h: coin.quote.USD.percent_change_24h,
             market_cap: coin.quote.USD.market_cap,
             volume_24h: coin.quote.USD.volume_24h,
-            updated_at: moment().tz("Asia/Kolkata").toDate(),
+            updated_at: moment().tz("Europe/Berlin").toDate(),
           };
         }
         return acc;
@@ -74,30 +75,98 @@ async function fetchCryptoData() {
     await Coin.deleteMany({});
     await Coin.insertMany(sortedCoins);
     console.log("✅ All crypto data updated successfully!");
+  } catch (error) {
+    console.error("❌ Error fetching crypto data:", error.message);
+  }
+}
 
-    // Step 6: Select top 10 coins by market cap
+async function fetchTop20Coins() {
+  console.log("🔄 Fetching ranked crypto data from CoinMaster...");
+
+  try {
+    // Step 1: Fetch coins from CoinMaster sorted by rank
+    const coinMasterList = await CoinMaster.find().sort({ rank: 1 }).lean();
+    const symbols = coinMasterList.map((coin) => coin.symbol);
+
+    console.log(`🔄 Fetching data for ${symbols.length} coins...`);
+
+    // Step 2: Fetch only these coins from CoinMarketCap
+    const response = await axios.get(
+      "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest",
+      {
+        headers: { "X-CMC_PRO_API_KEY": process.env.COINMARKETCAP_API_KEY },
+        params: {
+          symbol: symbols.join(","), // Pass symbols directly
+          convert: "USD",
+        },
+      }
+    );
+
+    // Step 3: Map API response directly & maintain rank order
+    const coinDataMap = Object.values(response.data.data).reduce(
+      (acc, coin) => {
+        const currentPrice = coin.quote.USD.price;
+
+        if (currentPrice !== null) {
+          acc[coin.symbol] = {
+            id: coin.id.toString(),
+            symbol: coin.symbol,
+            name: coin.name,
+            image: `https://s2.coinmarketcap.com/static/img/coins/64x64/${coin.id}.png`,
+            price_change_percentage_24h: coin.quote.USD.percent_change_24h,
+            listed_price: currentPrice, // Using "listed_price" instead of "current_price"
+            market_cap: coin.quote.USD.market_cap,
+            volume_24h: coin.quote.USD.volume_24h,
+            votes: [], // Empty array for votes initially
+          };
+        }
+        return acc;
+      },
+      {}
+    );
+
+    // Step 4: Maintain rank order from CoinMaster & remove null prices
+    const sortedCoins = coinMasterList
+      .map((coin) => ({
+        ...coinDataMap[coin.symbol],
+        image: coin.imageUrl, // Maintain original image URL
+      }))
+      .filter((coin) => coin.symbol && coin.listed_price !== null); // Ensure valid coins & price is not null
+
+    // Step 5: Select top 10 coins by market cap
     let top10Coins = sortedCoins
       .sort((a, b) => b.market_cap - a.market_cap)
       .slice(0, 10);
 
-    // Step 7: Select next top 10 coins by price_change_percentage_24h (excluding top 10 by market cap)
+    // Step 6: Select next top 10 coins by price_change_percentage_24h (excluding top 10 by market cap)
     let top10ExcludedSymbols = new Set(top10Coins.map((coin) => coin.symbol));
     let top10Gainers = sortedCoins
-      .filter(
-        (coin) =>
-          !top10ExcludedSymbols.has(coin.symbol) && coin.current_price !== null
-      ) // Exclude top 10 by market cap & null prices
+      .filter((coin) => !top10ExcludedSymbols.has(coin.symbol))
       .sort(
         (a, b) => b.price_change_percentage_24h - a.price_change_percentage_24h
       )
       .slice(0, 10);
 
-    // Step 8: Update the TopCoins collection
-    await TopCoin.deleteMany({});
-    await TopCoin.insertMany([...top10Coins, ...top10Gainers]); // Save top market cap + top gainers
-    console.log(
-      "✅ Top 10 market cap and top 10 gainers updated successfully!"
+    // Step 7: Update all old records to "Archive"
+    await CryptoVotingList.updateMany(
+      { status: "Active" }, // Only update active records
+      { $set: { status: "Archive" } }
     );
+
+    // Step 8: Prepare new crypto voting list data
+    const listDate = moment().tz("Europe/Berlin").format("YYYY-MM-DD");
+
+    const newVotingList = new CryptoVotingList({
+      coins: [...top10Coins, ...top10Gainers], // Combine both lists
+      list_date: listDate, // Store with the current date
+      updated_at: new Date(),
+      status: "Active", // New entry is always active
+    });
+
+    // Step 9: Save the new voting list
+    await newVotingList.save();
+
+    console.log(`✅ Crypto voting list for ${listDate} saved successfully!`);
   } catch (error) {
     console.error("❌ Error fetching crypto data:", error.message);
   }
@@ -114,7 +183,7 @@ async function saveDailyCryptoSnapshot() {
       return;
     }
 
-    const today = moment().tz("Asia/Kolkata").format("YYYY-MM-DD"); // Format: YYYY-MM-DD
+    const today = moment().tz("Europe/Berlin").format("YYYY-MM-DD"); // Format: YYYY-MM-DD
 
     // Upsert (update or insert) to ensure only one document per date
     await CoinsHistory.updateOne(
@@ -136,14 +205,32 @@ async function saveDailyCryptoSnapshot() {
 // Run once when the app starts
 // fetchCryptoData();
 // saveDailyCryptoSnapshot();
+// fetchTop20Coins();
 
-cron.schedule("59 23 * * *", async () => {
-  console.log("⏰ Running daily crypto snapshot...");
-  await saveDailyCryptoSnapshot();
-});
+cron.schedule(
+  "59 22 * * *",
+  async () => {
+    console.log("⏰ Running daily crypto snapshot at 23:59 CET...");
+    await saveDailyCryptoSnapshot();
+  },
+  {
+    timezone: "Europe/Berlin", // Automatically adjusts for CET/CEST changes
+  }
+);
+
+cron.schedule(
+  "0 23 * * *",
+  async () => {
+    console.log("⏰ Running daily crypto voting list at 12:00 AM CET...");
+    await fetchTop20Coins();
+  },
+  {
+    timezone: "Europe/Berlin", // Ensures it's always aligned with CET/CEST
+  }
+);
 
 // // Run every 15 minutes
-cron.schedule("*/30 * * * *", fetchCryptoData);
+cron.schedule("*/20 * * * *", fetchCryptoData);
 
 send = (res, code, data, msg = "", customMsg = "", totalRecords) => {
   let result = {};

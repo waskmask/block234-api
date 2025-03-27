@@ -634,18 +634,6 @@ const getappUserProfile = async (req) => {
 
   try {
     const appUser = await appUsersSchema.findById(id);
-    let artistCategoriesInfo = await artistCategoriesSchema.find({
-      _id: { $in: appUser.artist_categories },
-    });
-    if (artistCategoriesInfo) {
-      appUser.artist_categories = artistCategoriesInfo;
-    }
-    let genresInfo = await genreSchema.find({
-      _id: { $in: appUser.genres },
-    });
-    if (genresInfo) {
-      appUser.genres = genresInfo;
-    }
 
     if (appUser) {
       result.data = appUser;

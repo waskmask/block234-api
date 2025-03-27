@@ -633,7 +633,9 @@ const getappUserProfile = async (req) => {
   const id = payload.id;
 
   try {
-    const appUser = await appUsersSchema.findById(id);
+    const appUser = await appUsersSchema
+      .findById(id)
+      .select("name _id email city country");
 
     if (appUser) {
       result.data = appUser;

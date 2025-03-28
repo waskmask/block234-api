@@ -15,14 +15,18 @@ const appUsersSchema = new mongoose.Schema(
       required: true, // full_name is now required
     },
     city: {
-      type: String, // No `required: false` needed since it's optional by default
+      type: String, // Optional by default
     },
     country: {
-      type: String, // No `required: false` needed since it's optional by default
+      type: String, // Optional by default
     },
     dob: {
       type: String, // Storing as a string in DD-MM-YYYY format
       match: /^\d{2}-\d{2}-\d{4}$/, // Ensures format is DD-MM-YYYY
+    },
+    gender: {
+      type: String,
+      enum: ["Male", "Female", "Other"], // Gender with predefined values
     },
     verification: {
       type: Boolean,

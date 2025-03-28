@@ -39,6 +39,9 @@ const validateAddappUserReq = Joi.object({
       "string.pattern.base": `"dob" must be in 'DD-MM-YYYY' format`,
       "string.trim": "{{#label}} must not have leading or trailing whitespace",
     }),
+  gender: Joi.string().valid("Male", "Female", "Other").optional().messages({
+    "any.only": `"gender" must be one of 'Male', 'Female', or 'Other'`,
+  }),
   crypto_exp: Joi.string()
     .valid(
       "none",

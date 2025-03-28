@@ -59,6 +59,7 @@ passport.use(
           },
           city: req.body.city,
           country: req.body.country,
+          crypto_exp: req.body.crypto_exp,
           verification: false,
           verification_token: verification_token,
           status: "Active",
@@ -635,7 +636,7 @@ const getappUserProfile = async (req) => {
   try {
     const appUser = await appUsersSchema
       .findById(id)
-      .select("name _id email city country");
+      .select("name _id email city country", "crypto_exp");
 
     if (appUser) {
       result.data = appUser;

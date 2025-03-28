@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+
 const appUsersSchema = new mongoose.Schema(
   {
     email: {
@@ -9,7 +10,6 @@ const appUsersSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-
     full_name: {
       type: String,
       required: false,
@@ -28,7 +28,6 @@ const appUsersSchema = new mongoose.Schema(
       type: String,
       required: false,
     },
-
     country: {
       type: String,
       required: false,
@@ -41,10 +40,22 @@ const appUsersSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-
     status: {
       type: String,
       required: true,
+    },
+    crypto_exp: {
+      type: String,
+      enum: [
+        "none",
+        "beginner",
+        "intermediate",
+        "advanced",
+        "expert",
+        "miner-developer",
+      ],
+      required: false, // Change to `true` if this field is mandatory
+      default: "none", // Default value if not provided
     },
   },
   {

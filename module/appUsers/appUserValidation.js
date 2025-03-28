@@ -9,11 +9,10 @@ const validateAddappUserReq = Joi.object({
     "string.empty": `"email" cannot be an empty field`,
     "string.trim": "{{#label}} must not have leading or trailing whitespace",
   }),
-  password: Joi.string().required().min(6).message({
+  password: Joi.string().min(6).trim().required().messages({
     "string.empty": `"password" cannot be an empty field`,
     "string.min": `"password" should have a minimum length of {#limit}`,
   }),
-
   first_name: Joi.string()
     .min(3)
     .max(50)
@@ -46,6 +45,20 @@ const validateAddappUserReq = Joi.object({
     "string.empty": `"country" cannot be an empty field`,
     "string.trim": "{{#label}} must not have leading or trailing whitespace",
   }),
+  crypto_exp: Joi.string()
+    .valid(
+      "none",
+      "beginner",
+      "intermediate",
+      "advanced",
+      "expert",
+      "miner-developer"
+    )
+    .required()
+    .messages({
+      "any.only": `"crypto_exp" must be one of 'none', 'beginner', 'intermediate', 'advanced', 'expert', 'miner-developer'`,
+      "string.empty": `"crypto_exp" cannot be an empty field`,
+    }),
 });
 
 const validateUpdateappUserReq = Joi.object({

@@ -12,15 +12,17 @@ const appUsersSchema = new mongoose.Schema(
     },
     full_name: {
       type: String,
-      required: true, // Updated to `true` since it's replacing `name`
+      required: true, // full_name is now required
     },
     city: {
-      type: String,
-      required: false,
+      type: String, // No `required: false` needed since it's optional by default
     },
     country: {
-      type: String,
-      required: false,
+      type: String, // No `required: false` needed since it's optional by default
+    },
+    dob: {
+      type: String, // Storing as a string in DD-MM-YYYY format
+      match: /^\d{2}-\d{2}-\d{4}$/, // Ensures format is DD-MM-YYYY
     },
     verification: {
       type: Boolean,
@@ -44,8 +46,8 @@ const appUsersSchema = new mongoose.Schema(
         "expert",
         "miner-developer",
       ],
-      required: false, // Change to `true` if this field is mandatory
-      default: "none", // Default value if not provided
+      required: false,
+      default: "none",
     },
   },
   {

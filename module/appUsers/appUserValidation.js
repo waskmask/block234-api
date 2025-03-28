@@ -25,14 +25,20 @@ const validateAddappUserReq = Joi.object({
       "string.min": `"full_name" should have a minimum length of {#limit}`,
       "string.trim": "{{#label}} must not have leading or trailing whitespace",
     }),
-  city: Joi.string().trim().required().messages({
-    "string.empty": `"city" cannot be an empty field`,
+  city: Joi.string().trim().optional().messages({
     "string.trim": "{{#label}} must not have leading or trailing whitespace",
   }),
-  country: Joi.string().trim().required().messages({
-    "string.empty": `"country" cannot be an empty field`,
+  country: Joi.string().trim().optional().messages({
     "string.trim": "{{#label}} must not have leading or trailing whitespace",
   }),
+  dob: Joi.string()
+    .trim()
+    .regex(/^\d{2}-\d{2}-\d{4}$/)
+    .optional()
+    .messages({
+      "string.pattern.base": `"dob" must be in 'DD-MM-YYYY' format`,
+      "string.trim": "{{#label}} must not have leading or trailing whitespace",
+    }),
   crypto_exp: Joi.string()
     .valid(
       "none",

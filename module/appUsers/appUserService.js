@@ -277,7 +277,7 @@ const resetPassword = async (req) => {
 
 const verificationCode = async (req) => {
   let result = { data: null };
-  const { token } = req.body;
+  const { token } = req.query;
 
   try {
     const adminUser = await appUsersSchema.findOne({
@@ -529,7 +529,7 @@ const uploadProfileImage = async (req) => {
   }
 
   if (user.profileImage) {
-    deleteFile(path.join(__dirname, "..", user.profileImage));
+    deleteFile(path.join(__dirname, "../../", user.profileImage));
   }
 
   const newPath = `/uploads/${new Date()
@@ -583,7 +583,7 @@ const removeProfileImage = async (req) => {
     const user = await appUsersSchema.findById(payload.id);
 
     if (user.profileImage) {
-      const imagePath = path.join(__dirname, "..", user.profileImage);
+      const imagePath = path.join(__dirname, "../../", user.profileImage);
       try {
         if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
       } catch (error) {

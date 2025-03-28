@@ -406,6 +406,7 @@ resizeImage = async (inputPath, outputPath) => {
 
 deleteFile = (filePath) => {
   try {
+    console.log(filePath);
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }

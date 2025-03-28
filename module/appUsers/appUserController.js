@@ -94,12 +94,12 @@ const resetPassword = async (req, res, next) => {
 };
 const verificationCode = async (req, res, next) => {
   try {
-    if (!req.body || Object.keys(req.body).length === 0) {
+    if (!req.body || Object.keys(req.query).length === 0) {
       return next(
-        createHttpError(400, { message: "Please pass body parameters" })
+        createHttpError(400, { message: "Please pass query parameter" })
       );
     }
-    let isValid = await validateVerificationCodeReq.validateAsync(req.body);
+    let isValid = await validateVerificationCodeReq.validateAsync(req.query);
     if (isValid instanceof Error) {
       return next(isValid);
     }

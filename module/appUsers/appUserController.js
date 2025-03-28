@@ -9,7 +9,7 @@ const {
   validateResetPasswordReq,
   validateVerificationCodeReq,
   validateappUserSpecificColumn,
-  validatedeleteappUser,
+  validateCheckUsernameReq,
 } = require("./appUserValidation");
 
 const artistLogin = async (req, res, next) => {
@@ -165,15 +165,6 @@ const getAllappUser = async (req, res, next) => {
   }
 };
 
-const getAllappArtists = async (req, res, next) => {
-  try {
-    let result = await appUserService.getAllappArtists(req);
-    helper.send(res, result.code, result.data);
-  } catch (error) {
-    next(error);
-  }
-};
-
 const getappUser = async (req, res, next) => {
   try {
     let result = await appUserService.getappUser(req);
@@ -192,18 +183,36 @@ const getappUserProfile = async (req, res, next) => {
   }
 };
 
-const deleteappUser = async (req, res, next) => {
+const uploadProfileImage = async (req, res, next) => {
   try {
-    if (!req.body || Object.keys(req.body).length === 0) {
-      return next(
-        createHttpError(400, { message: "Please pass body parameters" })
-      );
+    let result = await appUserService.uploadProfileImage(req);
+    helper.send(res, result.code, result.data);
+  } catch (error) {
+    if (error.isJoi) {
+      return next(createHttpError(400, { message: error.message }));
     }
-    let isValid = await validatedeleteappUser.validateAsync(req.body);
+    next(error);
+  }
+};
+const checkUsername = async (req, res, next) => {
+  try {
+    let isValid = await validateCheckUsernameReq.validateAsync(req.params);
     if (isValid instanceof Error) {
       return next(isValid);
     }
-    let result = await appUserService.deleteappUser(req);
+    let result = await appUserService.checkUsername(req);
+    helper.send(res, result.code, result.data);
+  } catch (error) {
+    if (error.isJoi) {
+      return next(createHttpError(400, { message: error.message }));
+    }
+    next(error);
+  }
+};
+
+const removeProfileImage = async (req, res, next) => {
+  try {
+    let result = await appUserService.removeProfileImage(req);
     helper.send(res, result.code, result.data);
   } catch (error) {
     next(error);
@@ -217,10 +226,11 @@ module.exports = {
   updateappUserSpecificColumn,
   getAllappUser,
   getappUser,
-  deleteappUser,
   resetPassword,
   forgotPassword,
   verificationCode,
   getappUserProfile,
-  getAllappArtists,
+  uploadProfileImage,
+  checkUsername,
+  removeProfileImage,
 };

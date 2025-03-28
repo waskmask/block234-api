@@ -1,5 +1,5 @@
 const Coin = require("../../model/coin");
-const TopCoin = require("../../model/topCoin");
+// const TopCoin = require("../../model/topCoin");
 const CoinsHistory = require("../../model/CoinsHistory");
 const CryptoVotingList = require("../../model/CryptoVotingList");
 const SavedCoin = require("../../model/SavedCoin");

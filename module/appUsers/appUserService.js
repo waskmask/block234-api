@@ -3,24 +3,20 @@ const passport = require("passport");
 const LocalStrategy = require("passport-local").Strategy;
 const bcryptjs = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const shortid = require("shortid");
 const { JWT_SECRET } = require("../../config");
 const nodemailer = require("nodemailer");
-const sharp = require("sharp");
-const heicConvert = require("heic-convert");
 const path = require("path");
 const fs = require("fs");
 const https = require("https");
-const AWS = require("aws-sdk");
-const exceljs = require("exceljs");
 require("dotenv").config();
 const {
   getMessage,
-  getForgotPassword,
+  getForgotPasswordappUser,
   generateRandomToken,
-  isValidEmail,
+  resizeImage,
+  deleteFile,
 } = require("../../utils/helper");
-const sendGridMail = require("@sendgrid/mail");
-sendGridMail.setApiKey(process.env.SENDGRID_API_KEY);
 const transporter = nodemailer.createTransport({
   host: "smtp.ionos.com",
   port: 587,
@@ -29,6 +25,13 @@ const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_PASSWORD, // generated ethereal password
   },
 });
+
+const generateUniqueFileName = () => {
+  const timestamp = Date.now();
+  const randomString = Math.random().toString(36).substring(2, 8); // Generates a random string of length 6
+  const uniqueFileName = `${timestamp}_${randomString}`;
+  return uniqueFileName;
+};
 
 passport.use(
   "local-signup",
@@ -50,13 +53,12 @@ passport.use(
         const hashedPassword = await bcryptjs.hashSync(password, 10);
         const verification_token = generateRandomToken(50);
 
-        const newUser = await appUsersSchema.create({
+        // Prepare user data
+        const userData = {
+          username: shortid.generate().toLowerCase(),
           email,
           password: hashedPassword,
-          // name: {
           full_name: req.body.full_name,
-          // last_name: req.body.last_name,
-          // },
           city: req.body.city,
           country: req.body.country,
           dob: req.body.dob,
@@ -65,19 +67,36 @@ passport.use(
           verification: false,
           verification_token: verification_token,
           status: "Active",
-        });
+          fake_email: false, // Default is false
+        };
+
+        // Send verification email
+        const message = await getEmailVerification(email, verification_token);
+        const messageData = await getMessage(
+          message,
+          email,
+          process.env.EMAIL_FROM,
+          "Vibrer Email Verification"
+        );
+
+        try {
+          // Try sending the email
+          await transporter.sendMail(messageData);
+        } catch (emailError) {
+          // Check if the error is due to an invalid email (550 - Mailbox Unavailable)
+          if (
+            emailError.code === "EENVELOPE" &&
+            emailError.responseCode === 550 &&
+            emailError.response.includes("mailbox unavailable")
+          ) {
+            userData.fake_email = true;
+          }
+        }
+
+        // Create the user in the database
+        const newUser = await appUsersSchema.create(userData);
+
         if (newUser) {
-          const message = await getEmailVerification(email, verification_token);
-          const messageData = await getMessage(
-            message,
-            email,
-            process.env.EMAIL_FROM,
-            "Vibrer Email Verification"
-          );
-
-          // Assuming you have a function to send the verification email
-          const send = await transporter.sendMail(messageData);
-
           return done(null, newUser);
         } else {
           return done(null, false, { message: "User registration failed." });
@@ -341,49 +360,15 @@ const addappUser = async (req) => {
 const updateappUser = async (req) => {
   const result = { data: null };
   const payload = req.decoded;
-  const {
-    email,
-    username,
-    artist_categories,
-    first_name,
-    last_name,
-    full_name,
-    gender,
-    date_of_birth,
-    city,
-    country,
-    concert_artist,
-    visibility,
-    bio,
-    profile_img,
-    profile_cover,
-    genres,
-    facebook,
-    twitter,
-    instagram,
-    youtube,
-    website,
-  } = req.body;
+  const { email, username, full_name, gender, dob, city, country, aboutUs } =
+    req.body;
 
   try {
     const filter = { _id: payload.id };
     const existingUser = await appUsersSchema.findById(payload.id);
-    let updatedUsername;
-
-    if (!existingUser.username && !req.body.username) {
-      if (req.body.first_name && req.body.last_name) {
-        updatedUsername = await new UniqueUsernameGenerator().generateUsername(
-          req.body.first_name,
-          req.body.last_name
-        );
-      } else if (req.body.full_name) {
-        updatedUsername =
-          await new UniqueUsernameGenerator().generateUsernameByFullName(
-            req.body.full_name
-          );
-      }
-    } else {
-      updatedUsername = req.body.username || existingUser.username;
+    if (!existingUser) {
+      result.code = 2017;
+      return result;
     }
 
     if (req.body.username) {
@@ -399,30 +384,13 @@ const updateappUser = async (req) => {
 
     const update = {
       email,
-      username: updatedUsername.toLowerCase(),
-      artist_categories,
-      name: {
-        first_name,
-        last_name,
-      },
+      username: username,
       full_name,
       gender,
-      date_of_birth,
+      dob,
       city,
       country,
-      concert_artist,
-      visibility,
-      bio,
-      profile_img,
-      profile_cover,
-      genres,
-      link: {
-        facebook,
-        twitter,
-        instagram,
-        youtube,
-        website,
-      },
+      aboutUs,
     };
 
     const updatedUser = await appUsersSchema.updateOne(filter, update);
@@ -453,16 +421,7 @@ const getAllappUser = async (req) => {
   limit = parseInt(limit) || 10;
 
   // Construct your query based on search parameters
-  const query = {
-    $and: [
-      {
-        $or: [
-          { "account_deleted.is_deleted": { $ne: true } },
-          { account_deleted: { $exists: false } },
-        ],
-      },
-    ],
-  };
+  const query = {};
 
   if (search) {
     const searchRegex = new RegExp(search, "i"); // Case-insensitive search regex
@@ -470,7 +429,6 @@ const getAllappUser = async (req) => {
       $or: [
         { full_name: searchRegex },
         { email: searchRegex },
-        { user_type: searchRegex },
         { country: searchRegex },
         // Add more fields for search as needed
       ],
@@ -516,18 +474,6 @@ const getappUser = async (req) => {
 
   try {
     const appUser = await appUsersSchema.findById(id);
-    let artistCategoriesInfo = await artistCategoriesSchema.find({
-      _id: { $in: appUser.artist_categories },
-    });
-    if (artistCategoriesInfo) {
-      appUser.artist_categories = artistCategoriesInfo;
-    }
-    let genresInfo = await genreSchema.find({
-      _id: { $in: appUser.genres },
-    });
-    if (genresInfo) {
-      appUser.genres = genresInfo;
-    }
 
     if (appUser) {
       result.data = appUser;
@@ -538,93 +484,6 @@ const getappUser = async (req) => {
   } catch (error) {
     result.code = 204;
     result.error = error;
-  }
-
-  return result;
-};
-
-const getAllappArtists = async (req) => {
-  const result = { data: null };
-
-  try {
-    // Fetch all app users
-    const appUsers = await appUsersSchema.find(
-      {
-        $and: [
-          { concert_artist: true }, // Must be a concert artist
-          {
-            $or: [
-              { "account_deleted.is_deleted": { $ne: true } }, // Not deleted
-              { account_deleted: { $exists: false } }, // `account_deleted` field does not exist
-            ],
-          },
-        ],
-      },
-      {
-        link: 1,
-        _id: 1,
-        email: 1,
-        artist_categories: 1,
-        visibility: 1,
-        verification: 1,
-        genres: 1,
-        status: 1,
-        profile_img: 1,
-        profile_cover: 1,
-        bio: 1,
-        city: 1,
-        country: 1,
-        date_of_birth: 1,
-        full_name: 1,
-        gender: 1,
-        username: 1,
-        concert_artist: 1,
-      }
-    );
-
-    if (!appUsers || appUsers.length === 0) {
-      result.code = 204; // No content
-      return result;
-    }
-
-    // Collect all unique category and genre IDs
-    const artistCategoryIds = [
-      ...new Set(appUsers.flatMap((user) => user.artist_categories || [])),
-    ];
-    const genreIds = [
-      ...new Set(appUsers.flatMap((user) => user.genres || [])),
-    ];
-
-    // Fetch artist categories and genres in bulk
-    const artistCategoriesInfo = await artistCategoriesSchema.find({
-      _id: { $in: artistCategoryIds },
-    });
-    const genresInfo = await genreSchema.find({
-      _id: { $in: genreIds },
-    });
-
-    // Map categories and genres by their IDs for faster lookup
-    const artistCategoriesMap = Object.fromEntries(
-      artistCategoriesInfo.map((cat) => [cat._id.toString(), cat])
-    );
-    const genresMap = Object.fromEntries(
-      genresInfo.map((genre) => [genre._id.toString(), genre])
-    );
-
-    // Populate each user's categories and genres
-    const populatedUsers = appUsers.map((user) => ({
-      ...user.toObject(), // Convert Mongoose document to plain object
-      artist_categories: (user.artist_categories || []).map(
-        (id) => artistCategoriesMap[id.toString()]
-      ),
-      genres: (user.genres || []).map((id) => genresMap[id.toString()]),
-    }));
-
-    result.data = populatedUsers;
-    result.code = 200; // Success
-  } catch (error) {
-    result.code = 500; // Internal server error
-    result.error = error.message || "An error occurred";
   }
 
   return result;
@@ -654,115 +513,90 @@ const getappUserProfile = async (req) => {
   return result;
 };
 
-const deleteappUser = async (req) => {
+const uploadProfileImage = async (req) => {
   const result = { data: null };
-  const { user_id, user_type } = req.body;
+  const payload = req.decoded;
+
+  if (!req.file) {
+    result.code = 2029;
+    return result;
+  }
+
+  const user = await appUsersSchema.findById(payload.id);
+  if (!user) {
+    result.code = 204;
+    return result;
+  }
+
+  if (user.profileImage) {
+    deleteFile(path.join(__dirname, "..", user.profileImage));
+  }
+
+  const newPath = `/uploads/${new Date()
+    .toLocaleString("en-us", { month: "2-digit", year: "numeric" })
+    .replace("/", "-")}/images/${req.file.filename}`;
+
+  await resizeImage(req.file.path, req.file.path); // Resize image unconditionally
+
+  user.profileImage = newPath; // Save new path in database
+  await user.save();
+
+  result.data = { profileImage: newPath };
+  result.code = 2030;
+
+  return result;
+};
+
+const checkUsername = async (req) => {
+  const result = { data: null };
+  const { username } = req.params;
+  const payload = req.decoded;
 
   try {
-    const user = await appUsersSchema.findById(user_id);
-    if (user && user.account_deleted && user.account_deleted.is_deleted) {
-      result.code = 2044;
-      return result;
-    }
+    const appUser = await appUsersSchema.findOne({
+      username: username,
+      _id: { $ne: payload.id },
+    });
 
-    let accountDeleted = null;
-    if (user_type === "admin") {
-      const adminData = await adminUsersSchema.findById(req.decoded.id);
-      if (!adminData) {
-        result.code = 2043;
-        return result;
-      }
-      const admin_email = adminData.email;
-      const admin_name = `${adminData.name.first_name} ${adminData.name.last_name}`;
-      accountDeleted = {
-        is_deleted: true,
-        deleted_by: {
-          user_type: "admin",
-          admin_email: admin_email,
-          admin_name: admin_name,
-        },
-        deletedAt: new Date(),
-      };
+    if (appUser) {
+      result.data = { is_exists: true };
+      result.code = 205;
     } else {
-      accountDeleted = {
-        is_deleted: true,
-        deleted_by: {
-          user_type: "self",
-        },
-        deletedAt: new Date(),
-      };
-    }
-
-    const updatedUser = await appUsersSchema.findOneAndUpdate(
-      { _id: user_id },
-      {
-        $unset: {
-          email: "",
-          password: "",
-          username: "",
-          artist_categories: "",
-          name: "",
-          gender: "",
-          date_of_birth: "",
-          city: "",
-          country: "",
-          concert_artist: "",
-          visibility: "",
-          bio: "",
-          profile_img: "",
-          profile_cover: "",
-          verified: "",
-          verification: "",
-          verification_token: "",
-          forgotPasswordToken: "",
-          genres: "",
-          gallery: "",
-          link: "",
-          favourites: "",
-          status: "",
-        },
-        $set: {
-          account_deleted: accountDeleted,
-          full_name: "user_deleted",
-        },
-      },
-      {
-        new: true,
-        select: {
-          _id: 1,
-          user_type: 1,
-          full_name: 1,
-          createdAt: 1,
-          updatedAt: 1,
-        },
-      }
-    );
-
-    if (updatedUser) {
-      await contestSchema.updateMany(
-        { "participates.user_id": user_id },
-        {
-          $pull: {
-            participates: { user_id: user_id },
-          },
-        }
-      );
-
-      await contestSchema.updateMany(
-        { "participates.votes.user_id": user_id },
-        {
-          $pull: {
-            "participates.$[].votes": { user_id: user_id },
-          },
-        }
-      );
-      result.data = updatedUser;
-      result.code = 203;
-    } else {
-      result.code = 204;
+      result.data = { is_exists: false };
+      result.code = 2037;
     }
   } catch (error) {
-    console.error("Error while deleting appUser:", error);
+    console.error("Error checking username:", error);
+    result.code = 2028;
+    result.error = error.message;
+  }
+
+  return result;
+};
+
+const removeProfileImage = async (req) => {
+  const result = { data: null };
+  const payload = req.decoded;
+  const { type } = req.body;
+
+  try {
+    const user = await appUsersSchema.findById(payload.id);
+
+    if (user.profileImage) {
+      const imagePath = path.join(__dirname, "..", user.profileImage);
+      try {
+        if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+      } catch (error) {
+        console.error("Error deleting profile image:", error);
+        result.code = 500;
+        return result;
+      }
+      user.profileImage = null;
+      await user.save();
+      result.code = 203;
+    }
+  } catch (error) {
+    console.error(`Error deleting ${type} image:`, error);
     result.code = 500;
   }
 
@@ -770,16 +604,17 @@ const deleteappUser = async (req) => {
 };
 
 module.exports = {
-  artistLogin,
   updateappUserSpecificColumn,
+  artistLogin,
   addappUser,
   updateappUser,
   getAllappUser,
   getappUser,
-  deleteappUser,
   forgotPassword,
   resetPassword,
   verificationCode,
   getappUserProfile,
-  getAllappArtists,
+  uploadProfileImage,
+  checkUsername,
+  removeProfileImage,
 };

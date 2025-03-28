@@ -114,6 +114,16 @@ const message = {
     httpCode: 200,
     status: 1,
   },
+  2037: {
+    message: "Username is available",
+    httpCode: 200,
+    status: 1,
+  },
+  2038: {
+    message: "Username already exists",
+    httpCode: 400,
+    status: 0,
+  },
 
   2043: {
     message: "Admin details not found",

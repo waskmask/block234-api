@@ -1,7 +1,6 @@
 const appUserController = require("./appUserController");
 const middleware = require("../../middleware");
-// const { uploader } = require("../../utils/fileUploader");
-// const { excelUploader } = require("../../utils/excelUploader");
+const { uploader } = require("../../utils/fileUploader");
 
 module.exports = (router) => {
   router.post(
@@ -12,7 +11,7 @@ module.exports = (router) => {
   router.post("/loginUser", appUserController.artistLogin);
   router.post("/appUser/forgot-password", appUserController.forgotPassword);
   router.post("/appUser/reset-password", appUserController.resetPassword);
-  router.post("/appUser/verification-code", appUserController.verificationCode);
+  router.post("/appUser/verify-email", appUserController.verificationCode);
 
   router.post("/registerUser", appUserController.addappUser);
   router.post(
@@ -20,7 +19,7 @@ module.exports = (router) => {
     middleware.validateToken,
     appUserController.updateappUserSpecificColumn
   );
-  router.patch(
+  router.put(
     "/update/appUser",
     middleware.validateToken,
     appUserController.updateappUser
@@ -30,11 +29,7 @@ module.exports = (router) => {
     middleware.validateToken,
     appUserController.getAllappUser
   );
-  router.get(
-    "/all/appArtists",
-    middleware.validateToken,
-    appUserController.getAllappArtists
-  );
+
   router.get(
     "/appUser/:id",
     middleware.validateToken,
@@ -46,8 +41,19 @@ module.exports = (router) => {
     appUserController.getappUserProfile
   );
   router.post(
-    "/remove/appUser",
+    "/upload/profile-image",
     middleware.validateToken,
-    appUserController.deleteappUser
+    uploader.single("profileImage"),
+    appUserController.uploadProfileImage
+  );
+  router.post(
+    "/delete/profile-image",
+    middleware.validateToken,
+    appUserController.removeProfileImage
+  );
+  router.post(
+    "/check-username/:username",
+    middleware.validateToken,
+    appUserController.checkUsername
   );
 };

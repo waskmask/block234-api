@@ -1,7 +1,14 @@
 const mongoose = require("mongoose");
+const shortid = require("shortid");
 
 const appUsersSchema = new mongoose.Schema(
   {
+    username: {
+      type: String,
+      unique: true,
+      lowercase: true,
+      default: () => shortid.generate(),
+    },
     email: {
       type: String,
       required: true,
@@ -26,7 +33,12 @@ const appUsersSchema = new mongoose.Schema(
     },
     gender: {
       type: String,
-      enum: ["Male", "Female", "Other"], // Gender with predefined values
+      enum: ["male", "female", "other"], // Gender with predefined values
+    },
+    fake_email: {
+      type: Boolean,
+      default: false, // Default is false
+      required: true,
     },
     verification: {
       type: Boolean,
@@ -36,6 +48,8 @@ const appUsersSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    profileImage: { type: String },
+    aboutUs: { type: String },
     status: {
       type: String,
       required: true,

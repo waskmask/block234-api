@@ -1,67 +1,39 @@
-var multer = require("multer");
-var path = require("path");
-const createHttpError = require("http-errors");
-
-const admin_image_dir = path.join(__dirname, "../public/adminImage");
-const artist_category_icon_dir = path.join(
-  __dirname,
-  "../public/artistCategoryIcon"
-);
-const badge_icon_dir = path.join(__dirname, "../public/badgeIcon");
-const coin_price_icon_dir = path.join(__dirname, "../public/coinPriceIcon");
-const concert_icon_dir = path.join(__dirname, "../public/concertTypeIcon");
-const profile_cover_dir = path.join(__dirname, "../public/profileCoverImage");
-
-const allowed_formats = [".jpg", ".jpeg", ".png"];
-
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    let dirname = admin_image_dir;
-    if (req.path === "/add/admin") {
-      dirname = admin_image_dir;
-    }
-    if (req.path === "/upload/profile-cover-image") {
-      dirname = profile_cover_dir;
-    }
-    if (req.path === "/add/gallery") {
-      dirname = profile_cover_dir;
-    }
-    if (req.path === "/add/artist-category") {
-      dirname = artist_category_icon_dir;
-    }
-    if (req.path === "/add/badge") {
-      dirname = badge_icon_dir;
-    }
-    if (req.path === "/add/coinPrice") {
-      dirname = coin_price_icon_dir;
-    }
-    if (req.path === "/add/concertType") {
-      dirname = concert_icon_dir;
-    }
-    cb(null, dirname);
-  },
+    const monthYear = new Date()
+      .toLocaleString("en-us", { month: "2-digit", year: "numeric" })
+      .replace("/", "-");
 
+    const dir = path.join(__dirname, "..", "uploads", monthYear, "images");
+
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    cb(null, dir);
+  },
   filename: (req, file, cb) => {
-    let filename =
-      file.fieldname + "_" + Date.now() + path.extname(file.originalname);
-    filename = Date.now() + path.extname(file.originalname);
+    const timestamp = Date.now();
+    const fileExt = path.extname(file.originalname);
+    const filename = `${timestamp}${fileExt}`;
     cb(null, filename);
   },
 });
 
-const fileFilter = (req, file, cb) => {
-  if (allowed_formats.includes(path.extname(file.originalname))) {
-    cb(null, true);
-  } else {
-    return cb(
-      createHttpError(400, { message: "Only jpeg, jpg, png are allowed" })
-    );
-  }
-};
-
+// Multer single file upload middleware
 const uploader = multer({
   storage: storage,
-  fileFilter: fileFilter,
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ["image/jpeg", "image/png"];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type"), false);
+    }
+  },
 });
 
 module.exports = {

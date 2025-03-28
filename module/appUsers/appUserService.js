@@ -53,10 +53,10 @@ passport.use(
         const newUser = await appUsersSchema.create({
           email,
           password: hashedPassword,
-          name: {
-            first_name: req.body.first_name,
-            last_name: req.body.last_name,
-          },
+          // name: {
+          full_name: req.body.full_name,
+          // last_name: req.body.last_name,
+          // },
           city: req.body.city,
           country: req.body.country,
           crypto_exp: req.body.crypto_exp,
@@ -636,7 +636,7 @@ const getappUserProfile = async (req) => {
   try {
     const appUser = await appUsersSchema
       .findById(id)
-      .select("name _id email city country", "crypto_exp");
+      .select("full_name _id email city country", "crypto_exp");
 
     if (appUser) {
       result.data = appUser;

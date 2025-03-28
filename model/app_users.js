@@ -12,17 +12,7 @@ const appUsersSchema = new mongoose.Schema(
     },
     full_name: {
       type: String,
-      required: false,
-    },
-    name: {
-      first_name: {
-        type: String,
-        required: false,
-      },
-      last_name: {
-        type: String,
-        required: false,
-      },
+      required: true, // Updated to `true` since it's replacing `name`
     },
     city: {
       type: String,

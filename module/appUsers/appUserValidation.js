@@ -13,28 +13,16 @@ const validateAddappUserReq = Joi.object({
     "string.empty": `"password" cannot be an empty field`,
     "string.min": `"password" should have a minimum length of {#limit}`,
   }),
-  first_name: Joi.string()
+  full_name: Joi.string()
     .min(3)
-    .max(50)
+    .max(100)
     .trim()
-    .regex(/^[A-Za-z\s]{1,}[\.]{0,1}[A-Za-z\s]{0,}$/)
-    .optional()
+    .regex(/^[A-Za-z\s]+$/)
+    .required()
     .messages({
-      "string.pattern.base": `"first_name" should be a type of 'text'`,
-      "string.empty": `"first_name" cannot be an empty field`,
-      "string.min": `"first_name" should have a minimum length of {#limit}`,
-      "string.trim": "{{#label}} must not have leading or trailing whitespace",
-    }),
-  last_name: Joi.string()
-    .min(3)
-    .max(50)
-    .trim()
-    .regex(/^[A-Za-z\s]{1,}[\.]{0,1}[A-Za-z\s]{0,}$/)
-    .optional()
-    .messages({
-      "string.pattern.base": `"last_name" should be a type of 'text'`,
-      "string.empty": `"last_name" cannot be an empty field`,
-      "string.min": `"last_name" should have a minimum length of {#limit}`,
+      "string.pattern.base": `"full_name" should contain only alphabets and spaces`,
+      "string.empty": `"full_name" cannot be an empty field`,
+      "string.min": `"full_name" should have a minimum length of {#limit}`,
       "string.trim": "{{#label}} must not have leading or trailing whitespace",
     }),
   city: Joi.string().trim().required().messages({

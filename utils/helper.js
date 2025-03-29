@@ -354,7 +354,7 @@ getForgotPasswordappUser = (email, verification_token) => {
   emailTemplate = emailTemplate.replace("[firstName & lastName]", `${email}`);
   emailTemplate = emailTemplate.replace(
     "[verificationUrl]",
-    `${process.env.FRONTEND_URL}reset-password?token=${verification_token}`
+    `${process.env.FRONTEND_URL}new-password?token=${verification_token}`
   );
 
   return emailTemplate;

@@ -48,6 +48,10 @@ const appUsersSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    forgotPasswordToken: {
+      token: String,
+      expiresAt: Date,
+    },
     profileImage: { type: String },
     aboutUs: { type: String },
     status: {

@@ -207,7 +207,7 @@ async function saveDailyCryptoSnapshot() {
 // fetchTop20Coins();
 
 cron.schedule(
-  "59 22 * * *",
+  "59 23 * * *",
   async () => {
     console.log("⏰ Running daily crypto snapshot at 23:59 CET...");
     await saveDailyCryptoSnapshot();
@@ -218,9 +218,9 @@ cron.schedule(
 );
 
 cron.schedule(
-  "0 23 * * *",
+  "1 0 * * *",
   async () => {
-    console.log("⏰ Running daily crypto voting list at 12:00 AM CET...");
+    console.log("⏰ Running daily crypto voting list at 12:01 AM CET...");
     await fetchTop20Coins();
   },
   {

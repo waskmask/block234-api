@@ -262,6 +262,7 @@ const top10coins = async (req) => {
         price_change_percentage_24h: coin.price_change_percentage_24h,
         market_cap: coin.market_cap,
         volume_24h: coin.volume_24h,
+        votes: coin.votes,
         vote_count: coin.votes ? coin.votes.length : 0, // 🔹 Add vote count from votes array
         updated_at: votingList.updated_at, // Use voting list update time
       };

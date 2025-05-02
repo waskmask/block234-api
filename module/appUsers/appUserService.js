@@ -498,7 +498,7 @@ const getappUserProfile = async (req) => {
     const appUser = await appUsersSchema
       .findById(id)
       .select(
-        "full_name _id email city country crypto_exp dob, gender, username, aboutUs"
+        "full_name _id email city country crypto_exp dob gender username aboutUs"
       );
 
     if (appUser) {

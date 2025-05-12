@@ -13,11 +13,7 @@ module.exports = (router) => {
     blogCategoryController.updateblogCategory
   );
   router.get("/all/blog-category", blogCategoryController.getAllblogCategory);
-  router.get(
-    "/blog-category/:id",
-    tokenValidator.validateToken,
-    blogCategoryController.getblogCategory
-  );
+  router.get("/blog-category/:id", blogCategoryController.getblogCategory);
   router.post(
     "/remove/blog-category/:id",
     tokenValidator.validateToken,

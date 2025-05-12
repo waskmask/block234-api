@@ -146,6 +146,11 @@ const message = {
     httpCode: 400,
     status: 0,
   },
+  2047: {
+    message: "One or more categories are invalid",
+    httpCode: 400,
+    status: 0,
+  },
 };
 
 module.exports = message;

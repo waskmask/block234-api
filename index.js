@@ -26,6 +26,7 @@ app.use(
   })
 );
 app.use("/public", express.static("public"));
+app.use("/uploads", express.static("uploads"));
 
 mongoose.connect(url, { useNewUrlParser: true });
 

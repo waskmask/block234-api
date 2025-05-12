@@ -23,4 +23,5 @@ module.exports = {
   JWT_SECRET: process.env.JWT_SECRET,
   COINMARKETCAP_API_KEY: process.env.COINMARKETCAP_API_KEY,
   COIN_URL: process.env.COIN_URL,
+  BACKEND_URL: process.env.BACKEND_URL,
 };

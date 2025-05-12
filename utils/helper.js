@@ -211,10 +211,10 @@ cron.schedule(
   async () => {
     console.log("⏰ Running daily crypto snapshot at 23:59 CET...");
     await saveDailyCryptoSnapshot();
-  },
-  {
-    timezone: "Europe/Berlin", // Automatically adjusts for CET/CEST changes
   }
+  // {
+  //   timezone: "Europe/Berlin", // Automatically adjusts for CET/CEST changes
+  // }
 );
 
 cron.schedule(
@@ -222,10 +222,10 @@ cron.schedule(
   async () => {
     console.log("⏰ Running daily crypto voting list at 12:01 AM CET...");
     await fetchTop20Coins();
-  },
-  {
-    timezone: "Europe/Berlin", // Ensures it's always aligned with CET/CEST
   }
+  // {
+  //   timezone: "Europe/Berlin", // Ensures it's always aligned with CET/CEST
+  // }
 );
 
 // // Run every 15 minutes

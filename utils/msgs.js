@@ -151,6 +151,11 @@ const message = {
     httpCode: 400,
     status: 0,
   },
+  2048: {
+    message: "Invalid Slug format",
+    httpCode: 400,
+    status: 0,
+  },
 };
 
 module.exports = message;

@@ -201,17 +201,34 @@ const getAllblog = async (req) => {
 
 const getblog = async (req) => {
   const result = { data: null };
-  const id = req.params.id;
-  const blogDetails = await blogSchema
-    .findById(id)
-    .populate("categories", "name slug")
-    .lean();
-  if (blogDetails) {
-    result.data = blogDetails;
-    result.code = 200;
-  } else {
-    result.code = 204;
+
+  const slug = req.params.slug;
+
+  // Basic slug validation
+  const slugRegex = /^[a-z0-9-]+$/;
+
+  if (!slug || typeof slug !== "string" || !slugRegex.test(slug)) {
+    result.code = 2048;
+    return result;
   }
+
+  try {
+    const blogDetails = await blogSchema
+      .findOne({ slug })
+      .populate("categories", "name slug")
+      .lean();
+
+    if (blogDetails) {
+      result.data = blogDetails;
+      result.code = 200;
+    } else {
+      result.code = 204;
+    }
+  } catch (error) {
+    console.error("Error fetching blog:", error);
+    result.code = 500;
+  }
+
   return result;
 };
 

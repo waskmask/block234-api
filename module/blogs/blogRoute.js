@@ -10,7 +10,7 @@ module.exports = (router) => {
     blogController.updateblog
   );
   router.post("/all/blog", blogController.getAllblog);
-  router.get("/blog/:id", blogController.getblog);
+  router.get("/blog/:slug", blogController.getblog);
   router.post(
     "/remove/blog/:id",
     middleware.validateToken,
